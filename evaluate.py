@@ -1,13 +1,12 @@
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
 import matplotlib.pyplot as plt
-import numpy as np
 import os
 
-def evaluate_model(model, X_test, y_test):
-    
+def evaluate_model(name, model, X_test, y_test):
+
     os.makedirs("results", exist_ok=True)
+
     y_pred = model.predict(X_test)
-    
     y_prob = model.predict_proba(X_test)
 
     accuracy = accuracy_score(y_test, y_pred)
@@ -15,39 +14,43 @@ def evaluate_model(model, X_test, y_test):
     recall = recall_score(y_test, y_pred)
     f1 = f1_score(y_test, y_pred)
 
-    print("\n--- Evaluation Metrics ---")
+    print(f"\n==== {name} ====")
     print("Accuracy :", round(accuracy, 4))
     print("Precision:", round(precision, 4))
     print("Recall   :", round(recall, 4))
     print("F1 Score :", round(f1, 4))
 
-    print("\nSample Predictions with Confidence Scores -")
+    print("\nSample Confidence Scores:")
+    for i in range(3):
+        print(f"Prediction: {y_pred[i]} | Confidence: {round(max(y_prob[i]), 4)}")
 
-    for i in range(5):
-        predicted_label = y_pred[i]
-        confidence = max(y_prob[i])  
-
-        print(f"Sample {i+1}:")
-        print("Prediction :", "Hallucinated" if predicted_label == 1 else "Factual")
-        print("Confidence :", round(confidence, 4))
-        print("-" * 40)
-
-  
     cm = confusion_matrix(y_test, y_pred)
-
-    print("\n--- Confusion Matrix ---")
-    print(cm)
 
     plt.figure()
     plt.imshow(cm)
-    plt.title("Confusion Matrix")
-    plt.xlabel("Predicted Label")
-    plt.ylabel("True Label")
+    plt.title(f"{name} - Confusion Matrix")
 
     for i in range(len(cm)):
         for j in range(len(cm[0])):
             plt.text(j, i, cm[i][j], ha='center', va='center')
 
-    plt.colorbar()
-    plt.savefig("results/confusion_matrix.png", bbox_inches='tight', dpi=300)
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+
+    plt.savefig(f"results/{name}_confusion.png", dpi=300)
     plt.close()
+
+    fpr, tpr, _ = roc_curve(y_test, y_prob[:,1])
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
+    plt.title(f"{name} - ROC Curve")
+    plt.xlabel("FPR")
+    plt.ylabel("TPR")
+    plt.legend()
+
+    plt.savefig(f"results/{name}_roc.png", dpi=300)
+    plt.close()
+
+    return accuracy, precision, recall, f1
